@@ -24,6 +24,6 @@ public class OpenApiConfig {
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
                 .externalDocs(new ExternalDocumentation()
                         .description("Documentation de l'API")
-                        .url("https://github.com/your-repo/music-backend"));
+                        .url("https://github.com/safydiallo/music-backend"));
     }
 }
