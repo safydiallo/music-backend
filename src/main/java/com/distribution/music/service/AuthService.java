@@ -3,14 +3,18 @@ package com.distribution.music.service;
 import com.distribution.music.dto.*;
 import com.distribution.music.entity.Role;
 import com.distribution.music.entity.User;
+import com.distribution.music.exception.ApiException;
 import com.distribution.music.repository.UserRepository;
 import com.distribution.music.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -20,9 +24,11 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
 
-    public String register(RegisterRequest request) {
+    private static final int TOKEN_EXPIRY_HOURS = 24;
+
+    public RegisterResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email déjà utilisé");
+            throw ApiException.conflict("Cet email est déjà utilisé");
         }
 
         String token = UUID.randomUUID().toString();
@@ -34,39 +40,59 @@ public class AuthService {
                 .role(Role.ARTIST)
                 .enabled(false)
                 .verificationToken(token)
+                // NOUVEAU : expiration dans 24h
+                .verificationTokenExpiresAt(LocalDateTime.now().plusHours(TOKEN_EXPIRY_HOURS))
                 .createdAt(LocalDateTime.now())
                 .build();
 
         userRepository.save(user);
-        emailService.sendVerificationEmail(user.getEmail(), token);
+        EmailContent emailContent = emailService.sendVerificationEmail(user.getEmail(), token);
 
-        return "Inscription réussie. Vérifie ton email.";
+        log.info("Nouvel utilisateur inscrit : {}", request.getEmail());
+        return new RegisterResponse(
+                "Inscription réussie. Vérifie ton email.",
+                emailContent.fromName(),
+                emailContent.fromAddress(),
+                emailContent.to(),
+                emailContent.subject(),
+                emailContent.body()
+        );
     }
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+                .orElseThrow(() -> ApiException.unauthorized("Email ou mot de passe incorrect"));
 
         if (!user.isEnabled()) {
-            throw new RuntimeException("Compte non vérifié. Vérifie ton email.");
+            throw ApiException.unauthorized("Compte non vérifié. Vérifie ton email.");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Mot de passe incorrect");
+            // Message volontairement vague pour ne pas confirmer l'existence du compte
+            log.warn("Tentative de connexion échouée pour : {}", request.getEmail());
+            throw ApiException.unauthorized("Email ou mot de passe incorrect");
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        log.info("Connexion réussie : {}", user.getEmail());
         return new AuthResponse(token, user.getRole().name(), user.getEmail(), user.getFullName());
     }
 
     public String verifyEmail(String token) {
         User user = userRepository.findByVerificationToken(token)
-                .orElseThrow(() -> new RuntimeException("Token invalide"));
+                .orElseThrow(() -> ApiException.badRequest("Token invalide"));
+
+        //  vérification de l'expiration
+        if (user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw ApiException.badRequest("Ce lien de vérification a expiré. Réinscris-toi.");
+        }
 
         user.setEnabled(true);
         user.setVerificationToken(null);
+        user.setVerificationTokenExpiresAt(null);
         userRepository.save(user);
 
+        log.info("Compte vérifié : {}", user.getEmail());
         return "Compte vérifié avec succès !";
     }
 }

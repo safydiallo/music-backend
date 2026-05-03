@@ -31,5 +31,8 @@ public class User {
 
     private String verificationToken;
 
+    //  expiration du token (24h)
+    private LocalDateTime verificationTokenExpiresAt;
+
     private LocalDateTime createdAt;
 }

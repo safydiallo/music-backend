@@ -1,21 +1,22 @@
 package com.distribution.music.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
 public class RegisterRequest {
 
-    @NotBlank
+    @NotBlank(message = "Le nom complet est obligatoire")
     private String fullName;
 
-    @Email
-    @NotBlank
+    @Email(message = "Format email invalide")
+    @NotBlank(message = "L'email est obligatoire")
     private String email;
 
-    @Size(min = 6)
-    @NotBlank
+    @NotBlank(message = "Le mot de passe est obligatoire")
+    @Pattern(
+        regexp = "^(?=.*[A-Z])(?=.*[0-9])(?=.*[@#$%!&*]).{8,}$",
+        message = "Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial (@#$%!&*)"
+    )
     private String password;
 }
