@@ -26,6 +26,7 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Value("${app.allowed-origin}")
     private String allowedOrigin;
@@ -37,12 +38,14 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api-docs/**", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                .requestMatchers("/api/auth/**", "/api-docs/**", "/v3/api-docs/**", "/swagger-ui/**", "/oauth2/**","/login/oauth2/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .oauth2Login(oauth -> oauth 
+            .successHandler(oAuth2SuccessHandler));
 
         return http.build();
     }

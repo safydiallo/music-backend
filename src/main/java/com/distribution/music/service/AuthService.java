@@ -23,6 +23,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
+    private final TokenCacheService tokenCacheService;
+
 
     private static final int TOKEN_EXPIRY_HOURS = 24;
 
@@ -35,6 +37,9 @@ public class AuthService {
 
         User user = User.builder()
                 .fullName(request.getFullName())
+                .nomArtiste(request.getNomArtiste())
+                .genreMusical(request.getGenreMusical())
+                .pays(request.getPays())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.ARTIST)
@@ -94,5 +99,41 @@ public class AuthService {
 
         log.info("Compte vérifié : {}", user.getEmail());
         return "Compte vérifié avec succès !";
+    }
+
+    // TODO : méthodes pour la réinitialisation du mot de passe
+    public void forgotPassword(ForgotPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> ApiException.notFound("Email non trouvé"));
+
+        String token = UUID.randomUUID().toString();
+        user.setResetPasswordToken(token);
+        user.setResetPasswordTokenExpiresAt(LocalDateTime.now().plusHours(1));
+        userRepository.save(user);
+
+        emailService.sendResetPasswordEmail(user.getEmail(), token);
+    }
+
+    public void resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByResetPasswordToken(request.getToken())
+                .orElseThrow(() -> ApiException.badRequest("Token invalide"));
+
+        if (user.getResetPasswordTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw ApiException.badRequest("Ce lien a expiré.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiresAt(null);
+        userRepository.save(user);
+    }
+    public void logout(String token) {
+        if (tokenCacheService.isBlacklisted(token)) {
+            throw ApiException.badRequest("Token déjà invalidé");
+        }
+        // Récupère le temps restant avant expiration du token
+        long expiration = jwtUtil.getExpirationTime(token);
+        tokenCacheService.blacklistToken(token, expiration);
+        log.info("Déconnexion réussie, token blacklisté dans Redis");
     }
 }

@@ -56,4 +56,14 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
+    // méthode pour obtenir le temps restant avant expiration du token
+    public long getExpirationTime(String token) {
+        Date expiration = Jwts.parserBuilder()
+                .setSigningKey(getKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+        return expiration.getTime() - System.currentTimeMillis();
+    }
 }

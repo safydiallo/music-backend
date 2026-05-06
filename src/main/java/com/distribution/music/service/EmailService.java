@@ -46,4 +46,22 @@ public class EmailService {
 
         return new EmailContent(fromName, fromAddress, to, subject, body);
     }
+
+    public void sendResetPasswordEmail(String to, String token) {
+        String link = baseUrl + "/reset-password?token=" + token;
+        String subject = "Réinitialisation de ton mot de passe";
+        String body = "Clique ici pour réinitialiser ton mot de passe : " + link;
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(new InternetAddress(fromAddress, fromName, "UTF-8"));
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, false);
+            mailSender.send(message);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new RuntimeException("Impossible d'envoyer l'email", e);
+        }
+}
 } 

@@ -12,6 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.distribution.music.service.TokenCacheService;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -21,6 +23,7 @@ import java.util.List;
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final TokenCacheService tokenCacheService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -32,6 +35,16 @@ public class JwtFilter extends OncePerRequestFilter {
 
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
+
+            // Vérifie si le token est blacklisté dans Redis
+            if (tokenCacheService.isBlacklisted(token)) {
+                log.warn("Token blacklisté utilisé sur {}", request.getRequestURI());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"message\": \"Token invalidé. Veuillez vous reconnecter.\"}");
+                return;
+            }
+            // Vérifie la validité du token et extrait les informations d'authentification
             if (jwtUtil.isValid(token)) {
                 String email = jwtUtil.extractEmail(token);
 
@@ -50,4 +63,5 @@ public class JwtFilter extends OncePerRequestFilter {
         }
         chain.doFilter(request, response);
     }
+    
 }
