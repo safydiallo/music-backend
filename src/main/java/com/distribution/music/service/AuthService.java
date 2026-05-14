@@ -101,17 +101,16 @@ public class AuthService {
         return "Compte vérifié avec succès !";
     }
 
-    // TODO : méthodes pour la réinitialisation du mot de passe
     public void forgotPassword(ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> ApiException.notFound("Email non trouvé"));
-
-        String token = UUID.randomUUID().toString();
-        user.setResetPasswordToken(token);
-        user.setResetPasswordTokenExpiresAt(LocalDateTime.now().plusHours(1));
-        userRepository.save(user);
-
-        emailService.sendResetPasswordEmail(user.getEmail(), token);
+        // Réponse identique quel que soit le résultat (évite de confirmer l'existence d'un compte)
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            String token = UUID.randomUUID().toString();
+            user.setResetPasswordToken(token);
+            user.setResetPasswordTokenExpiresAt(LocalDateTime.now().plusHours(1));
+            userRepository.save(user);
+            emailService.sendResetPasswordEmail(user.getEmail(), token);
+        });
+        log.info("Demande de réinitialisation pour : {}", request.getEmail());
     }
 
     public void resetPassword(ResetPasswordRequest request) {
