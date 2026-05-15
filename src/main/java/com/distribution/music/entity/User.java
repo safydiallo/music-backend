@@ -59,4 +59,7 @@ public class User {
     //Reinitialisation du mot de passe
     private String resetPasswordToken;
     private LocalDateTime resetPasswordTokenExpiresAt;  
+    
+    //Indique si l'utilisateur doit changer son mot de passe à la prochaine connexion
+    private boolean mustChangePassword;
 }

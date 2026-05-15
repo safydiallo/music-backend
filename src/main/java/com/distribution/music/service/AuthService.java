@@ -1,6 +1,7 @@
 package com.distribution.music.service;
 
 import com.distribution.music.dto.*;
+import com.distribution.music.entity.ChangePasswordRequest;
 import com.distribution.music.entity.Role;
 import com.distribution.music.entity.User;
 import com.distribution.music.exception.ApiException;
@@ -11,7 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -80,7 +85,7 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         log.info("Connexion réussie : {}", user.getEmail());
-        return new AuthResponse(token, user.getRole().name(), user.getEmail(), user.getFullName());
+        return new AuthResponse(token, user.getRole().name(), user.getEmail(), user.getFullName(), user.isMustChangePassword());
     }
 
     public String verifyEmail(String token) {
@@ -102,15 +107,28 @@ public class AuthService {
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {
-        // Réponse identique quel que soit le résultat (évite de confirmer l'existence d'un compte)
-        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-            String token = UUID.randomUUID().toString();
-            user.setResetPasswordToken(token);
-            user.setResetPasswordTokenExpiresAt(LocalDateTime.now().plusHours(1));
-            userRepository.save(user);
-            emailService.sendResetPasswordEmail(user.getEmail(), token);
-        });
-        log.info("Demande de réinitialisation pour : {}", request.getEmail());
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> ApiException.notFound("Email non trouvé"));
+
+        // Génère un mot de passe temporaire
+        String temporaryPassword = generateTemporaryPassword();
+
+        // Remplace l'ancien mot de passe par le nouveau hashé
+        user.setPassword(passwordEncoder.encode(temporaryPassword));
+
+        // Marque que l'utilisateur doit changer son mot de passe
+        user.setMustChangePassword(true);
+
+        // Supprime les anciens tokens de reset s'il y en a
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiresAt(null);
+
+        userRepository.save(user);
+
+        // Envoie l'email avec le mot de passe temporaire
+        emailService.sendTemporaryPasswordEmail(user.getEmail(), temporaryPassword);
+
+        log.info("Mot de passe temporaire envoyé à : {}", user.getEmail());
     }
 
     public void resetPassword(ResetPasswordRequest request) {
@@ -134,5 +152,57 @@ public class AuthService {
         long expiration = jwtUtil.getExpirationTime(token);
         tokenCacheService.blacklistToken(token, expiration);
         log.info("Déconnexion réussie, token blacklisté dans Redis");
+    }
+
+
+    // Méthode utilitaire pour générer un mot de passe temporaire sécurisé
+    private String generateTemporaryPassword() {
+        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lower = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "@#$%!&*";
+        String all = upper + lower + digits + special;
+
+        SecureRandom random = new SecureRandom();
+        StringBuilder password = new StringBuilder();
+
+        // Garantit au moins un caractère de chaque type
+        password.append(upper.charAt(random.nextInt(upper.length())));
+        password.append(lower.charAt(random.nextInt(lower.length())));
+        password.append(digits.charAt(random.nextInt(digits.length())));
+        password.append(special.charAt(random.nextInt(special.length())));
+
+        // Complète jusqu'à 10 caractères
+        for (int i = 4; i < 10; i++) {
+            password.append(all.charAt(random.nextInt(all.length())));
+        }
+
+        // Mélange les caractères
+        List<Character> chars = new ArrayList<>();
+        for (char c : password.toString().toCharArray()) chars.add(c);
+        Collections.shuffle(chars, random);
+
+        StringBuilder result = new StringBuilder();
+        for (char c : chars) result.append(c);
+        return result.toString();
+    }
+
+    // Nouvelle méthode pour changer le mot de passe après connexion
+    public void changePassword(String email, ChangePasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw ApiException.badRequest("Les mots de passe ne correspondent pas");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> ApiException.notFound("Utilisateur non trouvé"));
+
+        // Remplace le mot de passe temporaire par le nouveau
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        // Désactive l'obligation de changer le mot de passe
+        user.setMustChangePassword(false);
+
+        userRepository.save(user);
+        log.info("Mot de passe changé avec succès pour : {}", email);
     }
 }

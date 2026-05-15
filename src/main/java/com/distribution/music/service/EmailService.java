@@ -27,6 +27,9 @@ public class EmailService {
     @Value("${app.mail.from.name:Musique Zig}")
     private String fromName;
 
+    @Value("${app.allowed-origin}")
+    private String appFrontendUrl;
+
     public EmailContent sendVerificationEmail(String to, String token) {
         String link = baseUrl + "/api/auth/verify?token=" + token;
         String subject = "Confirme ton compte";
@@ -63,5 +66,36 @@ public class EmailService {
         } catch (MessagingException | UnsupportedEncodingException e) {
             throw new RuntimeException("Impossible d'envoyer l'email", e);
         }
-}
+    }
+
+    public void sendTemporaryPasswordEmail(String to, String temporaryPassword) {
+        String loginUrl = appFrontendUrl + "/login";
+        String subject = "Ton nouveau mot de passe temporaire";
+        String body = """
+                Bonjour,
+                
+                Tu as demandé la réinitialisation de ton mot de passe.
+                
+                Ton mot de passe temporaire est : %s
+                
+                Clique sur le bouton ci-dessous pour te connecter :
+                %s
+                
+                Une fois connecté, tu pourras modifier ce mot de passe.
+                
+                Si tu n'as pas fait cette demande, ignore cet email.
+                """.formatted(temporaryPassword, loginUrl);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(new InternetAddress(fromAddress, fromName, "UTF-8"));
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, false);
+            mailSender.send(message);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new RuntimeException("Impossible d'envoyer l'email", e);
+        }
+    }
 } 

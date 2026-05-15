@@ -1,7 +1,9 @@
 package com.distribution.music.controller;
 
 import com.distribution.music.dto.*;
+import com.distribution.music.entity.ChangePasswordRequest;
 import com.distribution.music.exception.ApiException;
+import com.distribution.music.security.JwtUtil;
 import com.distribution.music.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtUtil jwtUtil;
 
 
     @PostMapping("/register")
@@ -52,4 +55,13 @@ public class AuthController {
         return ResponseEntity.ok("Déconnexion réussie.");
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<String> changePassword(
+            @RequestHeader("Authorization") String authHeader,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        String token = authHeader.substring(7);
+        String email = jwtUtil.extractEmail(token);
+        authService.changePassword(email, request);
+        return ResponseEntity.ok("Mot de passe modifié avec succès.");
+    }
 }
