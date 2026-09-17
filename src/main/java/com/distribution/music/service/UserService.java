@@ -53,9 +53,15 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> ApiException.notFound("Utilisateur non trouvé"));
 
+        String previousPhotoUrl = user.getPhotoUrl();
+
         String photoUrl = fileStorageService.storeProfilePhoto(file);
         user.setPhotoUrl(photoUrl);
         userRepository.save(user);
+
+        if (previousPhotoUrl != null && !previousPhotoUrl.equals(photoUrl)) {
+            fileStorageService.deletePublicFile(previousPhotoUrl);
+        }
 
         log.info("Photo de profil mise à jour : {}", email);
         return toResponse(user);
