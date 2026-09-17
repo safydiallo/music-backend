@@ -33,6 +33,7 @@ services:
       - .env
     volumes:
       - ./.env:/app/.env:ro
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -41,4 +42,5 @@ services:
 
 volumes:
   db_data:
+  uploads_data:
 

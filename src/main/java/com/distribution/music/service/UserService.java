@@ -7,6 +7,7 @@ import com.distribution.music.entity.User;
 import com.distribution.music.entity.UserProfileResponse;
 import com.distribution.music.exception.ApiException;
 import com.distribution.music.repository.UserRepository;
+import org.springframework.web.multipart.MultipartFile;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UserService {
 
-    private final UserRepository userRepository;
+    private final UserRepository userRepository; 
+    private final FileStorageService fileStorageService;
+
 
     public UserProfileResponse getProfile(String email) {
         User user = userRepository.findByEmail(email)
@@ -45,6 +48,19 @@ public class UserService {
         log.info("Profil mis à jour : {}", email);
         return toResponse(user);
     }
+
+    public UserProfileResponse updateProfilePhoto(String email, MultipartFile file) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> ApiException.notFound("Utilisateur non trouvé"));
+
+        String photoUrl = fileStorageService.storeProfilePhoto(file);
+        user.setPhotoUrl(photoUrl);
+        userRepository.save(user);
+
+        log.info("Photo de profil mise à jour : {}", email);
+        return toResponse(user);
+    }
+
 
     public void deleteAccount(String email) {
         User user = userRepository.findByEmail(email)
