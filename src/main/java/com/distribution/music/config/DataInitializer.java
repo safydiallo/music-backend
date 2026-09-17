@@ -39,6 +39,9 @@ public class DataInitializer implements CommandLineRunner {
                     .role(Role.ADMIN)
                     .enabled(true)
                     .createdAt(LocalDateTime.now())
+                    .nomArtiste("Admin")
+                    .pays("N/A")
+                    .genreMusical("N/A")
                     .build();
 
             userRepository.save(admin);
