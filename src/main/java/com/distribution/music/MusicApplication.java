@@ -26,6 +26,7 @@ public class MusicApplication {
 		System.setProperty("DB_DRIVER", dotenv.get("DB_DRIVER"));
 
 		System.setProperty("APP_BASE_URL", dotenv.get("APP_BASE_URL"));
+		System.setProperty("FRONTEND_URL", dotenv.get("FRONTEND_URL"));
 		System.setProperty("ALLOWED_ORIGIN", dotenv.get("ALLOWED_ORIGIN"));
 
 		SpringApplication.run(MusicApplication.class, args);

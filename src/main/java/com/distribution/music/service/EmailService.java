@@ -21,6 +21,9 @@ public class EmailService {
     @Value("${app.base-url}")
     private String baseUrl;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
     @Value("${app.mail.from.address:noreply@musique-zig.com}")
     private String fromAddress;
 
@@ -31,7 +34,7 @@ public class EmailService {
     private String appFrontendUrl;
 
     public EmailContent sendVerificationEmail(String to, String token) {
-        String link = baseUrl + "/api/auth/verify?token=" + token;
+        String link = frontendUrl + "/verify?token=" + token;
         String subject = "Confirme ton compte";
         String body = "Clique ici pour confirmer ton compte : " + link;
 
@@ -51,7 +54,7 @@ public class EmailService {
     }
 
     public void sendResetPasswordEmail(String to, String token) {
-        String link = baseUrl + "/reset-password?token=" + token;
+        String link = frontendUrl + "/reset-password?token=" + token;
         String subject = "Réinitialisation de ton mot de passe";
         String body = "Clique ici pour réinitialiser ton mot de passe : " + link;
 
